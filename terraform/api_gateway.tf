@@ -103,6 +103,9 @@ resource "aws_api_gateway_stage" "main" {
 
   xray_tracing_enabled = true
 
+  # Must wait for the account-level CloudWatch role to be registered first
+  depends_on = [aws_api_gateway_account.main]
+
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
     format = jsonencode({
