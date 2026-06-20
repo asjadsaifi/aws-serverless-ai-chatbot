@@ -1,0 +1,190 @@
+# ============================================================
+# GitHub Actions — CI/CD Pipeline
+# ============================================================
+# This pipeline runs on every push to main (deploy to dev)
+# and on every release tag (deploy to prod).
+#
+# NO LOCAL DEPLOYS. Everything goes through this pipeline.
+#
+# Required GitHub Secrets (set in repo Settings → Secrets):
+#   AWS_ROLE_ARN       — IAM role ARN for GitHub OIDC (see README)
+#   AWS_REGION         — e.g. us-east-1
+#   TF_STATE_BUCKET    — S3 bucket name for Terraform state
+# ============================================================
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main          # Deploys to dev on every merge to main
+  release:
+    types: [published] # Deploys to prod when a release is published
+
+permissions:
+  id-token: write   # Required for OIDC authentication to AWS
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  PYTHON_VERSION: "3.12"
+  TF_VERSION: "1.7.5"
+
+jobs:
+  # ============================================================
+  # Job 1: Lint & Test — runs on every push/PR
+  # ============================================================
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check lambda/
+
+      - name: Type check with mypy
+        run: mypy lambda/ --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  # ============================================================
+  # Job 2: Terraform validate — checks syntax without deploying
+  # ============================================================
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+  # ============================================================
+  # Job 3: Deploy to Dev — runs after tests pass on main
+  # ============================================================
+  deploy-dev:
+    name: Deploy to Dev
+    runs-on: ubuntu-latest
+    needs: [test, terraform-validate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: dev   # Maps to GitHub Environment "dev"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC — no hardcoded keys!)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="environment=dev" \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Print API URL
+        working-directory: terraform
+        run: terraform output chat_endpoint
+
+  # ============================================================
+  # Job 4: Deploy to Prod — only on published releases
+  # ============================================================
+  deploy-prod:
+    name: Deploy to Prod
+    runs-on: ubuntu-latest
+    needs: [test, terraform-validate]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: prod   # GitHub Environment "prod" — can require manual approval
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="environment=prod" \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan

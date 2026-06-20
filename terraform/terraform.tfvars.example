@@ -1,0 +1,13 @@
+# ============================================================
+# Copy this file to terraform.tfvars for local development.
+# NEVER commit terraform.tfvars — it's in .gitignore.
+# In CI/CD, these values come from GitHub Actions secrets.
+# ============================================================
+
+aws_region         = "us-east-1"
+project_name       = "ai-chatbot"
+environment        = "dev"
+bedrock_model_id   = "amazon.nova-micro-v1:0"
+lambda_timeout     = 30
+lambda_memory      = 256
+log_retention_days = 30
