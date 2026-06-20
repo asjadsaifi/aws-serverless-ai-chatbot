@@ -41,7 +41,7 @@ def mock_aws():
         mock_resource.return_value.Table.return_value = mock_table
         mock_client.return_value = mock_bedrock
 
-        import lambda.chat.handler as handler
+        import src.chat.handler as handler
         importlib.reload(handler)
 
         yield handler, mock_table, mock_bedrock

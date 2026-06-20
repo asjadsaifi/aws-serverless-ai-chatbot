@@ -38,7 +38,7 @@ def mock_aws(monkeypatch):
         mock_resource.return_value.Table.return_value = mock_table
 
         import importlib
-        import lambda.history.handler as handler
+        import src.history.handler as handler
         importlib.reload(handler)
 
         yield handler, mock_table

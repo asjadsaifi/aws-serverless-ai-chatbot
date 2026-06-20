@@ -7,13 +7,13 @@
 
 data "archive_file" "chat_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda/chat"
+  source_dir  = "${path.module}/../src/chat"
   output_path = "${path.module}/../.builds/chat.zip"
 }
 
 data "archive_file" "history_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda/history"
+  source_dir  = "${path.module}/../src/history"
   output_path = "${path.module}/../.builds/history.zip"
 }
 

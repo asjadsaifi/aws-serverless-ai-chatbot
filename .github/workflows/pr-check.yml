@@ -38,7 +38,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
 
       - name: Lint
-        run: ruff check lambda/
+        run: ruff check src/
 
       - name: Tests
         run: pytest tests/ -v --tb=short
