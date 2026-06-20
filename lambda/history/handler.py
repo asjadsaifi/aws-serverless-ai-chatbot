@@ -13,6 +13,7 @@ Industry practices used here:
 import json
 import logging
 import os
+from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -31,16 +32,16 @@ AWS_REGION = os.environ["AWS_REGION_NAME"]
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 table = dynamodb.Table(DYNAMODB_TABLE)
 
-MAX_LIMIT = 100  # Hard cap — prevents oversized responses
+MAX_LIMIT = 100  # Hard cap - prevents oversized responses
 
 
-def lambda_handler(event: dict, context) -> dict:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
-    Main Lambda entry point — returns chat history for a session.
+    Main Lambda entry point - returns chat history for a session.
 
     Query params:
-        session_id (required) — the conversation to fetch
-        limit      (optional) — number of messages (1-100, default 20)
+        session_id (required) - the conversation to fetch
+        limit      (optional) - number of messages (1-100, default 20)
     """
     request_id = context.aws_request_id
 
@@ -50,13 +51,12 @@ def lambda_handler(event: dict, context) -> dict:
     }))
 
     try:
-        params = event.get("queryStringParameters") or {}
+        params: dict[str, Any] = event.get("queryStringParameters") or {}
         session_id = (params.get("session_id") or "").strip()
 
         if not session_id:
             return _response(400, {"error": "session_id query parameter is required"})
 
-        # Validate and clamp the limit
         try:
             limit = max(1, min(int(params.get("limit", 20)), MAX_LIMIT))
         except (ValueError, TypeError):
@@ -65,7 +65,7 @@ def lambda_handler(event: dict, context) -> dict:
         result = table.query(
             KeyConditionExpression=Key("session_id").eq(session_id),
             Limit=limit,
-            ScanIndexForward=True,   # Oldest message first
+            ScanIndexForward=True,
         )
 
         messages = result.get("Items", [])
@@ -102,7 +102,7 @@ def lambda_handler(event: dict, context) -> dict:
         return _response(500, {"error": "Internal server error"})
 
 
-def _response(status_code: int, body: dict) -> dict:
+def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
     """Build an API Gateway proxy response."""
     return {
         "statusCode": status_code,
@@ -111,6 +111,5 @@ def _response(status_code: int, body: dict) -> dict:
             "Access-Control-Allow-Origin": "*",
             "X-Content-Type-Options": "nosniff",
         },
-        # default=str handles DynamoDB Decimal types automatically
         "body": json.dumps(body, default=str),
     }

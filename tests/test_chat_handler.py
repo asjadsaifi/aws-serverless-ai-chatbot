@@ -1,9 +1,9 @@
 """
 Unit tests for the chat Lambda handler.
-
-We mock all AWS clients so tests run locally without any AWS access.
+All AWS clients are mocked so tests run with zero AWS access.
 """
 
+import importlib
 import json
 import os
 from unittest.mock import MagicMock, patch
@@ -12,7 +12,7 @@ import pytest
 
 # Set required environment variables before importing the handler
 os.environ.setdefault("DYNAMODB_TABLE", "test-table")
-os.environ.setdefault("BEDROCK_MODEL_ID", "amazon.titan-text-express-v1")
+os.environ.setdefault("BEDROCK_MODEL_ID", "amazon.nova-micro-v1:0")
 os.environ.setdefault("AWS_REGION_NAME", "us-east-1")
 
 
@@ -21,18 +21,18 @@ class FakeLambdaContext:
 
 
 @pytest.fixture()
-def mock_aws(monkeypatch):
+def mock_aws():
     """Patch boto3 resource and client before importing handler."""
     mock_table = MagicMock()
     mock_bedrock = MagicMock()
 
-    # Mock Bedrock response
-    mock_bedrock.invoke_model.return_value = {
-        "body": MagicMock(
-            read=lambda: json.dumps({
-                "results": [{"outputText": "Hello! I am an AI assistant."}]
-            }).encode()
-        )
+    # Mock Bedrock Converse API response
+    mock_bedrock.converse.return_value = {
+        "output": {
+            "message": {
+                "content": [{"text": "Hello! I am an AI assistant."}]
+            }
+        }
     }
 
     with patch("boto3.resource") as mock_resource, \
@@ -41,8 +41,6 @@ def mock_aws(monkeypatch):
         mock_resource.return_value.Table.return_value = mock_table
         mock_client.return_value = mock_bedrock
 
-        # Import here so env vars and patches are in place
-        import importlib
         import lambda.chat.handler as handler
         importlib.reload(handler)
 
@@ -69,7 +67,7 @@ def test_successful_chat(mock_aws):
     body = json.loads(response["body"])
     assert body["session_id"] == "sess-1"
     assert "response" in body
-    assert mock_table.put_item.call_count == 2  # user + assistant messages saved
+    assert mock_table.put_item.call_count == 2  # user + assistant saved
 
 
 def test_missing_message_returns_400(mock_aws):
@@ -79,8 +77,7 @@ def test_missing_message_returns_400(mock_aws):
     response = handler.lambda_handler(event, FakeLambdaContext())
 
     assert response["statusCode"] == 400
-    body = json.loads(response["body"])
-    assert "error" in body
+    assert "error" in json.loads(response["body"])
 
 
 def test_empty_message_returns_400(mock_aws):
@@ -108,8 +105,7 @@ def test_auto_generates_session_id_if_missing(mock_aws):
     response = handler.lambda_handler(event, FakeLambdaContext())
 
     assert response["statusCode"] == 200
-    body = json.loads(response["body"])
-    assert len(body["session_id"]) > 0
+    assert len(json.loads(response["body"])["session_id"]) > 0
 
 
 def test_invalid_json_body_returns_500(mock_aws):

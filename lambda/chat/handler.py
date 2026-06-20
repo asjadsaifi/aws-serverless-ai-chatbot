@@ -8,7 +8,7 @@ Industry practices used here:
 - Structured JSON logging (searchable in CloudWatch Logs Insights)
 - Input validation with clear error messages
 - AWS clients initialized outside handler (connection reuse on warm starts)
-- Specific exception handling — not bare except
+- Specific exception handling - not bare except
 - Environment-driven log level
 """
 
@@ -16,14 +16,13 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 # ---- Logging setup ----
-# Structured JSON logs are searchable in CloudWatch Logs Insights.
-# Set LOG_LEVEL=DEBUG in dev, WARNING in prod via Terraform environment variables.
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 logger = logging.getLogger()
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
@@ -39,7 +38,7 @@ bedrock = boto3.client("bedrock-runtime", region_name=AWS_REGION)
 table = dynamodb.Table(DYNAMODB_TABLE)
 
 
-def lambda_handler(event: dict, context) -> dict:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """
     Main Lambda entry point called by API Gateway.
 
@@ -70,10 +69,8 @@ def lambda_handler(event: dict, context) -> dict:
         if len(user_message) > 4000:
             return _response(400, {"error": "message exceeds maximum length of 4000 characters"})
 
-        # Call Bedrock for an AI response
         ai_response = _invoke_bedrock(user_message, request_id)
 
-        # Persist both turns to DynamoDB
         _save_message(session_id, "user", user_message)
         _save_message(session_id, "assistant", ai_response)
 
@@ -107,19 +104,20 @@ def lambda_handler(event: dict, context) -> dict:
         return _response(500, {"error": "Internal server error"})
 
 
-def _parse_body(event: dict) -> dict:
+def _parse_body(event: dict[str, Any]) -> dict[str, Any]:
     """Safely parse the request body, returning empty dict on failure."""
     raw_body = event.get("body") or "{}"
     try:
-        return json.loads(raw_body)
+        result: dict[str, Any] = json.loads(raw_body)
+        return result
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON body: {exc}") from exc
 
 
 def _invoke_bedrock(message: str, request_id: str) -> str:
     """
-    Send a message to Amazon Bedrock Nova Lite and return the reply.
-    Uses the Converse API — works with any Bedrock model, future-proof.
+    Send a message to Amazon Bedrock using the Converse API and return the reply.
+    Converse API works with any Bedrock model - future-proof.
 
     Raises:
         ClientError: if Bedrock call fails
@@ -130,7 +128,6 @@ def _invoke_bedrock(message: str, request_id: str) -> str:
         "model_id": BEDROCK_MODEL_ID,
     }))
 
-    # Converse API — single unified format that works across all Bedrock models
     response = bedrock.converse(
         modelId=BEDROCK_MODEL_ID,
         messages=[
@@ -146,7 +143,7 @@ def _invoke_bedrock(message: str, request_id: str) -> str:
         },
     )
 
-    return response["output"]["message"]["content"][0]["text"].strip()
+    return str(response["output"]["message"]["content"][0]["text"]).strip()
 
 
 def _save_message(session_id: str, role: str, content: str) -> None:
@@ -158,7 +155,7 @@ def _save_message(session_id: str, role: str, content: str) -> None:
         role:       "user" or "assistant"
         content:    message text
     """
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(UTC)
     expires_at = int((now + timedelta(days=30)).timestamp())
 
     table.put_item(Item={
@@ -170,7 +167,7 @@ def _save_message(session_id: str, role: str, content: str) -> None:
     })
 
 
-def _response(status_code: int, body: dict) -> dict:
+def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
     """Build an API Gateway proxy response."""
     return {
         "statusCode": status_code,

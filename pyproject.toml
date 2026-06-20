@@ -15,13 +15,17 @@ select = [
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
 ]
-ignore = ["E501"]  # Line too long — ruff formatter handles this
+ignore = [
+    "E501",   # Line too long - formatter handles this
+    "UP017",  # Use datetime.UTC - conflicts with mypy attr-defined check
+]
 
 [tool.mypy]
 python_version = "3.12"
 strict = false
 warn_return_any = true
 warn_unused_configs = true
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
