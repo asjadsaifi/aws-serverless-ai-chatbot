@@ -28,7 +28,7 @@ terraform {
     bucket         = "asjad-ai-chatbot-tfstate"
     key            = "ai-chatbot/terraform.tfstate"
     region         = "us-east-1"
-    encrypt        = true                       # Encrypt state at rest
-    dynamodb_table = "terraform-state-lock"     # Prevents concurrent applies
+    encrypt        = true                   # Encrypt state at rest
+    dynamodb_table = "terraform-state-lock" # Prevents concurrent applies
   }
 }
