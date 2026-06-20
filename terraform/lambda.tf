@@ -5,14 +5,12 @@
 # source_code_hash ensures Lambda updates whenever code changes.
 # ============================================================
 
-# Package chat Lambda into a ZIP
 data "archive_file" "chat_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda/chat"
   output_path = "${path.module}/../.builds/chat.zip"
 }
 
-# Package history Lambda into a ZIP
 data "archive_file" "history_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda/history"
@@ -22,7 +20,7 @@ data "archive_file" "history_lambda_zip" {
 # ---- Chat Lambda ----
 resource "aws_lambda_function" "chat" {
   function_name    = "${local.name_prefix}-chat"
-  role             = aws_iam_role.chat_lambda_role.arn   # Own role — not shared
+  role             = aws_iam_role.chat_lambda_role.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.chat_lambda_zip.output_path
@@ -30,7 +28,6 @@ resource "aws_lambda_function" "chat" {
   timeout          = var.lambda_timeout
   memory_size      = var.lambda_memory
 
-  # Dependency: log group must exist before Lambda (so logs don't auto-create without retention)
   depends_on = [aws_cloudwatch_log_group.chat_lambda]
 
   environment {
@@ -46,7 +43,7 @@ resource "aws_lambda_function" "chat" {
 # ---- History Lambda ----
 resource "aws_lambda_function" "history" {
   function_name    = "${local.name_prefix}-history"
-  role             = aws_iam_role.history_lambda_role.arn  # Read-only role
+  role             = aws_iam_role.history_lambda_role.arn
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.history_lambda_zip.output_path
@@ -65,7 +62,6 @@ resource "aws_lambda_function" "history" {
   }
 }
 
-# Allow API Gateway to invoke chat Lambda
 resource "aws_lambda_permission" "chat_api" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -74,7 +70,6 @@ resource "aws_lambda_permission" "chat_api" {
   source_arn    = "${aws_api_gateway_rest_api.chatbot_api.execution_arn}/*/*"
 }
 
-# Allow API Gateway to invoke history Lambda
 resource "aws_lambda_permission" "history_api" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"

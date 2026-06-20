@@ -17,7 +17,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  description = "Project name — used as prefix for all resource names"
+  description = "Project name - used as prefix for all resource names"
   type        = string
   default     = "ai-chatbot"
 
@@ -39,9 +39,9 @@ variable "environment" {
 }
 
 variable "bedrock_model_id" {
-  description = "Amazon Bedrock foundation model ID"
+  description = "Amazon Bedrock foundation model ID. Nova Micro is fastest and cheapest for dev/testing."
   type        = string
-  default     = "amazon.nova-micro-v1:0"  # Nova Micro: fastest, cheapest, highest rate limits — ideal for dev/testing
+  default     = "amazon.nova-micro-v1:0"
 }
 
 variable "lambda_timeout" {

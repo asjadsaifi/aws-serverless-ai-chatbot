@@ -1,10 +1,10 @@
 # ============================================================
-# DynamoDB — Chat History Table
+# DynamoDB - Chat History Table
 # ============================================================
 
 resource "aws_dynamodb_table" "chat_history" {
   name         = "${local.name_prefix}-chat-history"
-  billing_mode = "PAY_PER_REQUEST"  # On-demand — no capacity planning needed
+  billing_mode = "PAY_PER_REQUEST"
   hash_key     = "session_id"
   range_key    = "timestamp"
 
@@ -18,14 +18,12 @@ resource "aws_dynamodb_table" "chat_history" {
     type = "S"
   }
 
-  # Auto-delete messages after N days via TTL
   ttl {
     attribute_name = "expires_at"
     enabled        = true
   }
 
-  # Enable point-in-time recovery — lets you restore to any second in the last 35 days
-  # This is an industry must-have for production tables
+  # Point-in-time recovery - restore to any second in the last 35 days
   point_in_time_recovery {
     enabled = true
   }

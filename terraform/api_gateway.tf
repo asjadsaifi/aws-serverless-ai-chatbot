@@ -1,21 +1,21 @@
 # ============================================================
 # API Gateway REST API
 # ============================================================
-# POST /chat     → chat Lambda
-# GET  /history  → history Lambda
+# POST /chat     -> chat Lambda
+# GET  /history  -> history Lambda
 # ============================================================
 
 resource "aws_api_gateway_rest_api" "chatbot_api" {
   name        = "${local.name_prefix}-api"
-  description = "REST API for the AI Chatbot — managed by Terraform"
+  description = "REST API for the AI Chatbot - managed by Terraform"
 
   endpoint_configuration {
-    types = ["REGIONAL"]  # REGIONAL is cheaper than EDGE for backend APIs
+    types = ["REGIONAL"]
   }
 }
 
 # ============================================================
-# /chat  — POST
+# /chat  - POST
 # ============================================================
 
 resource "aws_api_gateway_resource" "chat" {
@@ -29,7 +29,7 @@ resource "aws_api_gateway_method" "chat_post" {
   resource_id      = aws_api_gateway_resource.chat.id
   http_method      = "POST"
   authorization    = "NONE"
-  api_key_required = true   # Require API key — basic protection for public endpoints
+  api_key_required = true
 }
 
 resource "aws_api_gateway_integration" "chat_integration" {
@@ -42,7 +42,7 @@ resource "aws_api_gateway_integration" "chat_integration" {
 }
 
 # ============================================================
-# /history  — GET
+# /history  - GET
 # ============================================================
 
 resource "aws_api_gateway_resource" "history" {
@@ -101,7 +101,6 @@ resource "aws_api_gateway_stage" "main" {
   rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
   stage_name    = var.environment
 
-  # Enable detailed CloudWatch metrics per endpoint
   xray_tracing_enabled = true
 
   access_log_settings {
@@ -119,7 +118,7 @@ resource "aws_api_gateway_stage" "main" {
 }
 
 # ============================================================
-# API Key — clients must send this in x-api-key header
+# API Key - clients must send this in x-api-key header
 # ============================================================
 
 resource "aws_api_gateway_api_key" "chatbot_key" {
@@ -137,13 +136,11 @@ resource "aws_api_gateway_usage_plan" "chatbot_plan" {
     stage  = aws_api_gateway_stage.main.stage_name
   }
 
-  # Rate limiting — protects against abuse
   throttle_settings {
-    burst_limit = 50   # Max concurrent requests
-    rate_limit  = 20   # Requests per second
+    burst_limit = 50
+    rate_limit  = 20
   }
 
-  # Hard cap per month
   quota_settings {
     limit  = 10000
     period = "MONTH"

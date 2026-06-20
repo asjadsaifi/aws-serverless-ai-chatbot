@@ -1,12 +1,11 @@
 # ============================================================
-# IAM — Least Privilege Principle
+# IAM - Least Privilege Principle
 # ============================================================
 # Each Lambda gets ONLY the permissions it needs.
-# chat Lambda  → Bedrock + DynamoDB write + CloudWatch logs
-# history Lambda → DynamoDB read only + CloudWatch logs
+# chat Lambda    -> Bedrock + DynamoDB write + CloudWatch logs
+# history Lambda -> DynamoDB read only + CloudWatch logs
 # ============================================================
 
-# ---- Trust policy (both Lambdas use this) ----
 data "aws_iam_policy_document" "lambda_trust" {
   statement {
     sid     = "AllowLambdaAssumeRole"
@@ -21,13 +20,13 @@ data "aws_iam_policy_document" "lambda_trust" {
 }
 
 # ============================================================
-# Chat Lambda Role — needs Bedrock + DynamoDB write
+# Chat Lambda Role - needs Bedrock + DynamoDB write
 # ============================================================
 
 resource "aws_iam_role" "chat_lambda_role" {
   name               = "${local.name_prefix}-chat-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
-  description        = "Role for the chat Lambda — Bedrock + DynamoDB write"
+  description        = "Role for the chat Lambda - Bedrock + DynamoDB write"
 }
 
 resource "aws_iam_role_policy_attachment" "chat_lambda_logs" {
@@ -43,11 +42,11 @@ resource "aws_iam_role_policy" "chat_lambda_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "AllowBedrockInvoke"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "AllowBedrockInvoke"
+        Effect = "Allow"
+        Action = [
           "bedrock:InvokeModel",
-          "bedrock:Converse"        # Converse API — used by chat Lambda
+          "bedrock:Converse"
         ]
         Resource = "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.bedrock_model_id}"
       },
@@ -59,7 +58,6 @@ resource "aws_iam_role_policy" "chat_lambda_policy" {
           "dynamodb:GetItem",
           "dynamodb:Query"
         ]
-        # Scope to ONLY the chat history table — not all DynamoDB
         Resource = aws_dynamodb_table.chat_history.arn
       }
     ]
@@ -67,13 +65,13 @@ resource "aws_iam_role_policy" "chat_lambda_policy" {
 }
 
 # ============================================================
-# History Lambda Role — read-only DynamoDB (no Bedrock needed)
+# History Lambda Role - read-only DynamoDB (no Bedrock needed)
 # ============================================================
 
 resource "aws_iam_role" "history_lambda_role" {
   name               = "${local.name_prefix}-history-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
-  description        = "Role for the history Lambda — DynamoDB read only"
+  description        = "Role for the history Lambda - DynamoDB read only"
 }
 
 resource "aws_iam_role_policy_attachment" "history_lambda_logs" {
