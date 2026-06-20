@@ -16,7 +16,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -158,7 +158,7 @@ def _save_message(session_id: str, role: str, content: str) -> None:
         role:       "user" or "assistant"
         content:    message text
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(datetime.UTC)
     expires_at = int((now + timedelta(days=30)).timestamp())
 
     table.put_item(Item={
