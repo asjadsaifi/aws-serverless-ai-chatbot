@@ -1,13 +1,8 @@
 """
 History Lambda Handler
 ----------------------
-Retrieves paginated chat history for a session from DynamoDB.
-
-Industry practices used here:
-- Structured JSON logging
-- Input validation and sanitisation
-- Specific exception handling
-- Type hints throughout
+Returns paginated chat history for a session.
+Validates the session belongs to the requesting user via Cognito claims.
 """
 
 import json
@@ -19,30 +14,19 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import BotoCoreError, ClientError
 
-# ---- Logging setup ----
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 logger = logging.getLogger()
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
-# ---- Config from environment ----
 DYNAMODB_TABLE = os.environ["DYNAMODB_TABLE"]
 AWS_REGION = os.environ["AWS_REGION_NAME"]
 
-# ---- AWS client (reused on warm starts) ----
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 table = dynamodb.Table(DYNAMODB_TABLE)
-
-MAX_LIMIT = 100  # Hard cap - prevents oversized responses
+MAX_LIMIT = 100
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
-    """
-    Main Lambda entry point - returns chat history for a session.
-
-    Query params:
-        session_id (required) - the conversation to fetch
-        limit      (optional) - number of messages (1-100, default 20)
-    """
     request_id = context.aws_request_id
 
     logger.info(json.dumps({
@@ -103,12 +87,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
 
 def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
-    """Build an API Gateway proxy response."""
     return {
         "statusCode": status_code,
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
             "X-Content-Type-Options": "nosniff",
         },
         "body": json.dumps(body, default=str),

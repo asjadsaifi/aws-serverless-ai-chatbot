@@ -76,3 +76,13 @@ variable "log_retention_days" {
     error_message = "Must be a valid CloudWatch retention value."
   }
 }
+
+variable "alert_email" {
+  description = "Email address to receive CloudWatch alarm and budget notifications"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@]+@[^@]+\\.[^@]+$", var.alert_email))
+    error_message = "Must be a valid email address."
+  }
+}

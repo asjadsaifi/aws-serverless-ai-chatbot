@@ -11,3 +11,4 @@ bedrock_model_id   = "amazon.nova-micro-v1:0"
 lambda_timeout     = 30
 lambda_memory      = 256
 log_retention_days = 30
+alert_email        = "your-email@example.com"

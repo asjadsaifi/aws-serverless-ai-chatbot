@@ -1,0 +1,61 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  background: #16213e;
+  border-bottom: 1px solid #2d3748;
+  flex-shrink: 0;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-logo {
+  font-size: 24px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.header-badge {
+  font-size: 11px;
+  background: #553c9a;
+  color: #e9d8fd;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-email {
+  font-size: 13px;
+  color: #a0aec0;
+}
+
+.header-signout {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #4a5568;
+  background: transparent;
+  color: #a0aec0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.header-signout:hover {
+  background: #2d3748;
+  color: #e2e8f0;
+}

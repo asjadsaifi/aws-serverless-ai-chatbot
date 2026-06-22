@@ -1,8 +1,9 @@
 # ============================================================
 # API Gateway REST API
 # ============================================================
-# POST /chat     -> chat Lambda
-# GET  /history  -> history Lambda
+# POST /chat     -> chat Lambda    (requires Cognito JWT)
+# GET  /history  -> history Lambda (requires Cognito JWT)
+# POST /auth/*   -> handled by Cognito directly
 # ============================================================
 
 resource "aws_api_gateway_rest_api" "chatbot_api" {
@@ -12,6 +13,20 @@ resource "aws_api_gateway_rest_api" "chatbot_api" {
   endpoint_configuration {
     types = ["REGIONAL"]
   }
+}
+
+# ============================================================
+# Cognito Authorizer — validates JWT on every protected request
+# ============================================================
+
+resource "aws_api_gateway_authorizer" "cognito" {
+  name          = "${local.name_prefix}-cognito-authorizer"
+  rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
+  type          = "COGNITO_USER_POOLS"
+  provider_arns = [aws_cognito_user_pool.chatbot.arn]
+
+  # JWT passed in Authorization header as "Bearer <token>"
+  identity_source = "method.request.header.Authorization"
 }
 
 # ============================================================
@@ -25,11 +40,18 @@ resource "aws_api_gateway_resource" "chat" {
 }
 
 resource "aws_api_gateway_method" "chat_post" {
-  rest_api_id      = aws_api_gateway_rest_api.chatbot_api.id
-  resource_id      = aws_api_gateway_resource.chat.id
-  http_method      = "POST"
-  authorization    = "NONE"
-  api_key_required = true
+  rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id   = aws_api_gateway_resource.chat.id
+  http_method   = "POST"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
+}
+
+resource "aws_api_gateway_method" "chat_options" {
+  rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id   = aws_api_gateway_resource.chat.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "chat_integration" {
@@ -39,6 +61,45 @@ resource "aws_api_gateway_integration" "chat_integration" {
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.chat.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "chat_options_integration" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.chat.id
+  http_method = aws_api_gateway_method.chat_options.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "chat_options_200" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.chat.id
+  http_method = aws_api_gateway_method.chat_options.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "chat_options_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.chat.id
+  http_method = aws_api_gateway_method.chat_options.http_method
+  status_code = aws_api_gateway_method_response.chat_options_200.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
+    "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+
+  depends_on = [aws_api_gateway_integration.chat_options_integration]
 }
 
 # ============================================================
@@ -52,11 +113,18 @@ resource "aws_api_gateway_resource" "history" {
 }
 
 resource "aws_api_gateway_method" "history_get" {
-  rest_api_id      = aws_api_gateway_rest_api.chatbot_api.id
-  resource_id      = aws_api_gateway_resource.history.id
-  http_method      = "GET"
-  authorization    = "NONE"
-  api_key_required = true
+  rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id   = aws_api_gateway_resource.history.id
+  http_method   = "GET"
+  authorization = "COGNITO_USER_POOLS"
+  authorizer_id = aws_api_gateway_authorizer.cognito.id
+}
+
+resource "aws_api_gateway_method" "history_options" {
+  rest_api_id   = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id   = aws_api_gateway_resource.history.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "history_integration" {
@@ -66,6 +134,45 @@ resource "aws_api_gateway_integration" "history_integration" {
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
   uri                     = aws_lambda_function.history.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "history_options_integration" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.history.id
+  http_method = aws_api_gateway_method.history_options.http_method
+  type        = "MOCK"
+
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+resource "aws_api_gateway_method_response" "history_options_200" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.history.id
+  http_method = aws_api_gateway_method.history_options.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "history_options_integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.chatbot_api.id
+  resource_id = aws_api_gateway_resource.history.id
+  http_method = aws_api_gateway_method.history_options.http_method
+  status_code = aws_api_gateway_method_response.history_options_200.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+
+  depends_on = [aws_api_gateway_integration.history_options_integration]
 }
 
 # ============================================================
@@ -83,6 +190,7 @@ resource "aws_api_gateway_deployment" "chatbot_deploy" {
       aws_api_gateway_resource.history.id,
       aws_api_gateway_method.history_get.id,
       aws_api_gateway_integration.history_integration.id,
+      aws_api_gateway_authorizer.cognito.id,
     ]))
   }
 
@@ -92,7 +200,9 @@ resource "aws_api_gateway_deployment" "chatbot_deploy" {
 
   depends_on = [
     aws_api_gateway_method.chat_post,
-    aws_api_gateway_method.history_get
+    aws_api_gateway_method.history_get,
+    aws_api_gateway_integration.chat_options_integration,
+    aws_api_gateway_integration.history_options_integration,
   ]
 }
 
@@ -103,7 +213,6 @@ resource "aws_api_gateway_stage" "main" {
 
   xray_tracing_enabled = true
 
-  # Must wait for the account-level CloudWatch role to be registered first
   depends_on = [aws_api_gateway_account.main]
 
   access_log_settings {
@@ -116,20 +225,12 @@ resource "aws_api_gateway_stage" "main" {
       status         = "$context.status"
       responseLength = "$context.responseLength"
       duration       = "$context.responseLatency"
+      user           = "$context.authorizer.claims.email"
     })
   }
 }
 
-# ============================================================
-# API Key - clients must send this in x-api-key header
-# ============================================================
-
-resource "aws_api_gateway_api_key" "chatbot_key" {
-  name        = "${local.name_prefix}-api-key"
-  description = "API key for chatbot clients"
-  enabled     = true
-}
-
+# Usage plan kept for monitoring — no longer used for auth
 resource "aws_api_gateway_usage_plan" "chatbot_plan" {
   name        = "${local.name_prefix}-usage-plan"
   description = "Throttle and quota limits"
@@ -148,10 +249,4 @@ resource "aws_api_gateway_usage_plan" "chatbot_plan" {
     limit  = 10000
     period = "MONTH"
   }
-}
-
-resource "aws_api_gateway_usage_plan_key" "chatbot_plan_key" {
-  key_id        = aws_api_gateway_api_key.chatbot_key.id
-  key_type      = "API_KEY"
-  usage_plan_id = aws_api_gateway_usage_plan.chatbot_plan.id
 }

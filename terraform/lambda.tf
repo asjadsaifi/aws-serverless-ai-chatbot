@@ -36,6 +36,7 @@ resource "aws_lambda_function" "chat" {
       BEDROCK_MODEL_ID = var.bedrock_model_id
       AWS_REGION_NAME  = var.aws_region
       LOG_LEVEL        = var.environment == "prod" ? "WARNING" : "DEBUG"
+      CONTEXT_WINDOW   = "10"
     }
   }
 }
